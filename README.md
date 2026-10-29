@@ -1,58 +1,158 @@
 # MarektLens
 
-Application Flutter Android de simulation pédagogique, package Dart `marekt_lens`. Aucun paiement, courtage ou investissement réel.
+Application mobile Flutter de **simulation d'investissement boursier** à but pédagogique. L'utilisateur reçoit un capital virtuel de 10 000 USD, consulte des actions, prépare des achats, vend, et suit la performance de son portefeuille.
 
-## Lancer
+> **Aucun ordre réel et aucun paiement réel ne sont exécutés.** Les prix peuvent être différés ou issus du cache : ils ne sont pas présentés comme du temps réel.
 
-Prérequis : Flutter >= 3.47 avec Dart >= 3.13, SDK Android, appareil ou émulateur.
+Projet du module *Mobile Software Engineering : Cross-Platform Flutter*.
 
-```powershell
+## Auteurs
+
+- Sofiene Landolsi ([@sofien91](https://github.com/sofien91))
+- Ghofrane Ben Haj ([@ghofranebenhaj](https://github.com/ghofranebenhaj))
+
+## Fonctionnalités
+
+- Inscription et connexion locales (authentification de démonstration, mot de passe haché avec PBKDF2 et un sel aléatoire).
+- Capital initial de 10 000 USD accordé une seule fois par utilisateur.
+- Catalogue d'actions avec recherche, favoris, détail, graphique historique, fiche entreprise et actualités.
+- Panier : quantités entières positives, vérification du solde, confirmation protégée contre la double validation.
+- Achat et vente dans une transaction SQLite unique.
+- Portefeuille : positions, prix moyen, valeur, gain ou perte non réalisé(e), gains réalisés et historique des transactions.
+- Profil : devise d'affichage (conversion pour l'affichage uniquement), thème, profil de risque, déconnexion.
+- Mode démonstration explicite, avec badge « Données de démonstration » et données séparées du mode normal.
+- Cache horodaté pour la lecture hors ligne, avec mention de l'ancienneté des données.
+
+## Technologies
+
+| Besoin | Choix |
+|---|---|
+| Interface | Flutter, Dart (null safety), Material 3 |
+| État et injection | flutter_riverpod |
+| Navigation | go_router |
+| HTTP | dio |
+| Données métier | SQLite (sqflite, path) |
+| Préférences, favoris, caches | Hive (hive, hive_flutter) |
+| Graphiques | fl_chart |
+| Formats | intl |
+| Tests | flutter_test |
+
+Les montants sont stockés en **cents USD (entiers)** pour éviter les erreurs d'arrondi des nombres décimaux.
+
+## Services externes
+
+| Service | Usage |
+|---|---|
+| Twelve Data | Prix et historiques |
+| Finnhub | Fiches entreprises |
+| Frankfurter | Taux de change (sans clé) |
+| GNews | Actualités |
+
+Les clés sont fournies à l'exécution avec `--dart-define` et ne sont **jamais** dans le dépôt. Une clé embarquée dans un APK n'est pas secrète : ne diffusez pas publiquement un APK construit avec vos clés. Les quotas dépendent de l'offre gratuite de chaque service.
+
+## Prérequis (Windows)
+
+- Flutter SDK (installé dans un dossier **sans espace**, par exemple `C:\src\flutter`)
+- Android Studio avec le SDK Android et un émulateur (ou un téléphone avec le débogage USB)
+- Git
+
+Vérifiez l'installation :
+
+```
+flutter doctor -v
+```
+
+## Installation
+
+```
+git clone https://github.com/sofien91/MarketLens.git
+cd MarketLens
 flutter pub get
-flutter run
 ```
 
-Sans clés, le mode démonstration est explicite et entièrement utilisable : créer un compte local, explorer les marchés, ajouter au panier, confirmer un achat, vendre, consulter l'historique et changer les préférences.
+Placez le projet dans un chemin sans espace (par exemple `C:\dev\MarketLens`) : un espace dans le chemin casse la compilation des bibliothèques natives sous Windows.
 
-Avec des clés personnelles (ne pas enregistrer les valeurs dans le dépôt) :
+## Lancer l'application
 
-```powershell
-flutter run --dart-define=TWELVE_DATA_KEY=VOTRE_CLE --dart-define=FINNHUB_KEY=VOTRE_CLE --dart-define=GNEWS_KEY=VOTRE_CLE
+Démarrez un émulateur, puis :
+
+```
+flutter devices
+flutter run -d emulator-5554
 ```
 
-Frankfurter ne nécessite pas de clé. Les comptes et portefeuilles sont séparés entre deux fichiers SQLite : `marekt_lens_demo.db` et `marekt_lens_normal.db`. Une panne API déclenche le mode démo et une reconnexion à l'environnement distinct. Le compte API est conservé. Chaque compte d'un environnement reçoit une seule fois 10 000 USD fictifs à sa création. Aucune session n'est conservée après fermeture de l'application.
+Sans clé API, l'application démarre en **mode démonstration**. Avec les vraies données :
 
-## Choix de conception
+```
+flutter run -d emulator-5554 ^
+  --dart-define=TWELVEDATA_KEY=<votre_cle> ^
+  --dart-define=FINNHUB_KEY=<votre_cle> ^
+  --dart-define=GNEWS_KEY=<votre_cle>
+```
 
-- Riverpod fournit le contrôleur applicatif et le service de négociation ; `go_router` protège les pages et assure les trois destinations principales. Le contrôleur observable garde une architecture courte, adaptée à un projet individuel.
-- SQLite conserve utilisateurs, catalogue par utilisateur, panier, positions et achats/ventes. Les mutations financières s'effectuent exclusivement dans `TradingService`, avec `db.transaction` et un identifiant aléatoire d'opération unique. La migration v1 → v2 ajoute la date d'observation du prix aux opérations existantes.
-- Hive conserve réellement préférences, favoris et réponses API datées, avec des clés préfixées par mode et utilisateur. Aucun cache API n'est partagé entre utilisateurs.
-- Mots de passe dérivés par PBKDF2-HMAC-SHA256, 210 000 itérations, sel aléatoire de 24 octets, clé de 256 bits. Il s'agit d'une authentification locale de démonstration ; le stockage n'est pas un coffre-fort chiffré.
-- Montants en cents USD entiers. Le prix moyen est une fraction d'entiers réduite pour rester inchangé à la vente partielle. Les gains sont arrondis au cent le plus proche, demi-cent à l'opposé de zéro. Les `double` du graphique servent uniquement au tracé. Les taux de conversion sont également traités comme fractions décimales.
-- La valeur totale est calculée à partir du solde et des positions. Aucun historique fictif de portefeuille. Les seules séries fictives sont les fixtures de cours clairement signalées en démo.
-- Démo reproductible : horloge fixe au 23 octobre 2026 à 20:00 UTC et valeurs fixes ; les dates des opérations y utilisent cette horloge simulée. En mode API, l'horloge réelle s'applique. Un cours âgé de plus de 15 minutes bloque la négociation, même hors séance.
-- La recherche porte sur six actions américaines : AAPL, MSFT, GOOGL, AMZN, NVDA, TSLA. L'historique de cours utilise jusqu'à 30 clôtures de séances ; la variation est calculée depuis la clôture précédente.
+(Le caractère `^` continue la commande sur la ligne suivante dans cmd. Dans PowerShell, utilisez `` ` ``, ou écrivez tout sur une seule ligne.)
 
-Les sources officielles, les politiques de cache et les versions sont dans [docs/API.md](docs/API.md). L'état de réalisation est dans [docs/CHECKLIST.md](docs/CHECKLIST.md).
+## Règles de simulation
 
-## Vérifier
+- Devise comptable : USD. La conversion ne sert qu'à l'affichage.
+- Valeur d'une position = quantité × dernier prix.
+- Prix moyen = coût total / quantité.
+- Gain non réalisé = valeur actuelle − coût.
+- Gain réalisé d'une vente = (prix de vente − prix moyen) × quantité.
+- Valeur totale du compte = solde + valeur des positions.
+- Un achat ou une vente est refusé si le prix est trop ancien (au-delà de 15 minutes en séance).
+- Seules les quantités entières strictement positives sont acceptées.
 
-```powershell
-dart format lib test
+## Stockage local
+
+- **SQLite** : utilisateurs, actifs, éléments du panier, positions, transactions (achats et ventes). Les données sont isolées par utilisateur (`user_id`) et la base est versionnée.
+- **Hive** : préférences, favoris et caches de réponses API horodatés.
+
+## Structure du projet
+
+```
+lib/
+  app/          thème, routeur
+  core/         base de données, réseau, modèles, argent, widgets partagés
+  features/
+    auth/  dashboard/  market/  watchlist/  cart/  portfolio/  profile/
+test/           tests unitaires et de widgets
+docs/           API.md, CHECKLIST.md, VALIDATION.md
+```
+
+## Tests
+
+```
+dart format .
 flutter analyze
 flutter test
-flutter build apk --debug
 ```
 
-Sur cette installation Windows, les hooks natifs des tests échouent si le chemin du SDK contient un espace. Le même SDK est accessible via son chemin court :
+Les tests couvrent notamment le capital initial unique, l'isolation entre utilisateurs, la quantité invalide, le solde insuffisant, la double validation, les calculs et arrondis, et la vente d'une quantité supérieure à celle détenue.
 
-```powershell
-& 'C:\Users\SOFIEN~1\flutter\flutter\bin\flutter.bat' test
+## Générer l'APK
+
+```
+flutter build apk --release ^
+  --dart-define=TWELVEDATA_KEY=<votre_cle> ^
+  --dart-define=FINNHUB_KEY=<votre_cle> ^
+  --dart-define=GNEWS_KEY=<votre_cle>
 ```
 
-Ce chemin est propre à cette machine. Consulter `docs/VALIDATION.md` pour les commandes réellement exécutées et leurs résultats.
+Le fichier se trouve dans `build\app\outputs\flutter-apk\app-release.apk`.
 
-## Structure
+## Limites connues
 
-`lib/app` : thème et routeur ; `lib/core` : base, réseau, modèles, erreurs/formatage, widgets partagés ; `lib/features/{auth,dashboard,market,watchlist,cart,portfolio,profile}` : écrans et service métier.
+- Authentification **locale de démonstration** : pas de serveur de comptes ni de vrai envoi d'e-mail. Le « mot de passe oublié » est un parcours simulé.
+- Les prix dépendent des données et des quotas des fournisseurs gratuits ; ils peuvent être différés.
+- Aucun historique de portefeuille n'est inventé : sans données suffisantes, l'application l'indique.
+- L'application est testée sur Android uniquement.
 
-Le parcours « mot de passe oublié » explique la récupération simulée sans envoyer de courriel ni changer le mot de passe. La volatilité optionnelle n'est pas incluse.
+## Pistes d'extension
+
+- Volatilité historique (écart-type des rendements, avec période et méthode indiquées).
+- Assistant conversationnel documentaire (RAG) avec un petit backend FastAPI.
+
+## Avertissement
+
+MarektLens est un outil pédagogique. Il ne constitue pas un conseil financier.
