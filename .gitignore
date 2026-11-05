@@ -67,3 +67,4 @@ backend/index/
 *.apk
 *.aab
 android/local.properties
+backend/.env

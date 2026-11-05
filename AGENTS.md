@@ -12,3 +12,14 @@ R9. Si les clés manquent ou si une API tombe : mode démo explicite (fixtures d
 R10. Aucun chiffre financier inventé : tout vient des calculs de l'app. Pas de courbe historique du portefeuille inventée.
 R11. Pas de boutons dépôt/retrait, pas de cadre de téléphone.
 R12. Ne dis jamais qu'un test, un build ou une vérification a été exécuté s'il ne l'a pas été.
+
+## Ajout volontaire demandé par l'utilisateur
+
+Exception volontaire à R1 : un backend Python pédagogique est autorisé. Le code Flutter reste inchangé dans cette intervention.
+
+R13. Aucune clé (modèle de langage, Twelve Data) dans Flutter, les assets ou le dépôt. Elles vivent dans backend/.env, ignoré par Git. Fournir backend/.env.example sans secret. Cette règle remplace la configuration Twelve Data de R7 pour l'assistant ; la migration Flutter reste à faire.
+R14. Le chatbot ne prédit jamais un prix ni un rendement futur, et ne dit jamais « achète » ou « vends ». Il peut présenter des indicateurs et un signal pédagogique calculés par le code, avec formule, période et date. Il ne donne ni prix actuel, ni solde, ni positions : renvoi vers Marchés ou Portefeuille.
+R15. Tous les chiffres viennent du code, jamais du modèle de langage. Les sources affichées sont construites par le serveur.
+R16. Si les données ou la documentation sont insuffisantes, répondre clairement « historique insuffisant », « la documentation ne permet pas de répondre » ou demander une précision.
+R17. Sans backend ou sans clé de modèle, afficher « Assistant indisponible » ou une réponse par gabarit clairement étiquetée ; jamais une fausse réponse de modèle.
+R18. Chaque réponse porte le rappel ajouté par le serveur : « Simulation pédagogique, pas un conseil financier. »

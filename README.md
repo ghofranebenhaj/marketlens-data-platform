@@ -1,417 +1,223 @@
-# MarketLens
+MarketLens Data Platform
 
-**MarketLens** est une application mobile développée avec Flutter et Dart dans le cadre du module **Mobile Software Engineering: Cross-Platform Flutter**.
+Simulateur pédagogique d'investissement boursier : une application mobile Flutter et un backend Python qui calcule des indicateurs de risque sur des prix réels et les fait expliquer en français par un modèle de langage, sans jamais lui laisser inventer un chiffre.
 
-Elle permet de simuler des investissements boursiers dans un environnement pédagogique. Chaque utilisateur dispose d'un capital virtuel initial de **10 000 USD** pour découvrir les marchés financiers, consulter des actions, effectuer des achats et des ventes simulés et suivre l'évolution de son portefeuille.
+Aucun ordre réel et aucun paiement réel ne sont exécutés. Les prix sont datés et peuvent être différés ou issus du cache : ils ne sont jamais présentés comme du temps réel. Les analyses sont des simulations pédagogiques, pas des conseils financiers.
 
-> **Important :** MarketLens est exclusivement une application de simulation. Aucun ordre boursier réel ni aucun paiement réel ne sont exécutés. Les prix affichés peuvent être différés ou provenir du cache et ne sont pas nécessairement en temps réel.
+Projet du module Mobile Software Engineering : Cross-Platform Flutter, prolongé par une extension Data et IA.
 
----
+Dépôt : ghofranebenhaj/marketlens-data-platform
 
-## Auteurs
+Dernière mise à jour : 5 novembre 2026.
 
-- **Sofiene Landolsi** — [@sofien91](https://github.com/sofien91)
-- **Ghofrane Ben Haj** — [@ghofranebenhaj](https://github.com/ghofranebenhaj)
+Auteurs
+Ghofrane Ben Haj (@ghofranebenhaj)
+<!-- Ajoute ici ton collègue seulement s'il a contribué au code : - Prénom Nom (@compte) -->
+Architecture
+┌──────────────────────────┐        ┌─────────────────────────────────────────────┐
+│  Application Flutter     │        │  Backend Python (FastAPI)                   │
+│  SQLite, Hive, Riverpod  │        │                                             │
+│                          │        │  Twelve Data ─► cache horodaté              │
+│  Twelve Data, Finnhub,   │        │                    │                        │
+│  Frankfurter, GNews      │        │                    ▼                        │
+└──────────────────────────┘        │  Indicateurs (NumPy) ─► Signal ─► Scénario  │
+                                    │                    │                        │
+                                    │  Recherche documentaire (TF-IDF)            │
+                                    │                    │                        │
+                                    │                    ▼                        │
+                                    │  Gemini : explique les chiffres calculés    │
+                                    │  Serveur : sources + avertissement          │
+                                    └─────────────────────────────────────────────┘
 
-**Repository :** [github.com/sofien91/MarketLens](https://github.com/sofien91/MarketLens)
+Principe central : les chiffres viennent du code, jamais du modèle de langage. Le modèle reçoit des résultats déjà calculés et les explique. Le serveur construit lui-même les sources et ajoute le rappel « Simulation pédagogique, pas un conseil financier. ». Si le modèle est absent ou si sa sortie contient un nombre inconnu, le serveur répond par un gabarit, clairement étiqueté.
 
----
+L'écran Assistant n'est pas encore branché dans l'application Flutter : le backend se teste aujourd'hui avec http://localhost:8000/docs.
 
-## Fonctionnalités principales
+Partie 1 : application Flutter
+Fonctionnalités
+Inscription et connexion locales (authentification de démonstration, mot de passe haché avec PBKDF2 et un sel aléatoire).
+Capital initial de 10 000 USD accordé une seule fois par utilisateur.
+Catalogue d'actions avec recherche, favoris, détail, graphique historique, fiche entreprise et actualités.
+Panier : quantités entières positives, vérification du solde, confirmation protégée contre la double validation.
+Achat et vente dans une transaction SQLite unique.
+Portefeuille : positions, prix moyen, valeur, gain ou perte non réalisé(e), gains réalisés et historique des transactions.
+Profil : devise d'affichage (conversion pour l'affichage uniquement), thème, profil de risque, déconnexion.
+Mode démonstration explicite, avec badge « Données de démonstration » et données séparées du mode normal.
+Cache horodaté pour la lecture hors ligne, avec mention de l'ancienneté des données.
+Technologies
+Besoin	Choix
+Interface	Flutter, Dart (null safety), Material 3
+État et injection	flutter_riverpod
+Navigation	go_router
+HTTP	dio
+Données métier	SQLite (sqflite, path)
+Préférences, favoris, caches	Hive (hive, hive_flutter)
+Graphiques	fl_chart
+Formats	intl
+Tests	flutter_test
 
-### 1. Authentification et gestion des comptes
-- Inscription et connexion locales.
-- Hachage des mots de passe avec PBKDF2 et sel aléatoire.
-- Validation des informations de connexion.
-- Attribution d'un capital initial de 10 000 USD, une seule fois par utilisateur.
-- Isolation des données entre les différents comptes.
-- Parcours de récupération de mot de passe simulé.
+Les montants sont stockés en cents USD (entiers) pour éviter les erreurs d'arrondi des nombres décimaux.
 
-### 2. Exploration des marchés
-- Catalogue de six actions.
-- Recherche d'actions.
-- Gestion des favoris.
-- Consultation des prix avec horodatage.
-- Graphiques historiques.
-- Fiches d'informations sur les entreprises.
-- Consultation des actualités financières.
+Services externes
+Service	Usage
+Twelve Data	Prix et historiques
+Finnhub	Fiches entreprises
+Frankfurter	Taux de change (sans clé)
+GNews	Actualités
 
-### 3. Simulation des achats et des ventes
-- Ajout d'actions au panier.
-- Saisie de quantités entières positives.
-- Vérification du solde disponible.
-- Protection contre la double validation.
-- Exécution des achats et ventes simulés.
-- Transactions SQLite atomiques.
-- Refus des opérations lorsque le prix est trop ancien.
+Les clés de l'application sont fournies à l'exécution avec --dart-define et ne sont jamais dans le dépôt. Une clé embarquée dans un APK n'est pas secrète : ne diffusez pas publiquement un APK construit avec vos clés. Les quotas dépendent de l'offre gratuite de chaque service.
 
-### 4. Gestion du portefeuille
-- Consultation des positions détenues.
-- Calcul du prix moyen d'achat.
-- Calcul de la valeur actuelle du portefeuille.
-- Suivi des gains et pertes non réalisés.
-- Calcul des gains et pertes réalisés.
-- Historique des transactions.
-- Consultation du solde et du capital total.
-
-### 5. Profil et préférences
-- Gestion des préférences utilisateur.
-- Choix de la devise d'affichage.
-- Personnalisation du thème.
-- Paramètres de profil de risque.
-- Déconnexion.
-
-### 6. Mode démonstration et fonctionnement hors ligne
-- Mode démonstration avec données prédéfinies.
-- Badge identifiant les données de démonstration.
-- Stockage séparé des données de démonstration.
-- Mise en cache horodatée des réponses API.
-- Consultation des données mises en cache hors ligne.
-- Indication de l'ancienneté des données.
-
----
-
-## Technologies utilisées
-
-| Domaine | Technologies |
-|---|---|
-| Application mobile | Flutter, Dart |
-| Interface utilisateur | Material 3 |
-| Gestion d'état | Riverpod |
-| Navigation | GoRouter |
-| Communication HTTP | Dio |
-| Base de données locale | SQLite, sqflite |
-| Chemins et stockage | path |
-| Préférences et cache | Hive, hive_flutter |
-| Graphiques | fl_chart |
-| Formatage et dates | intl |
-| Tests | flutter_test |
-
-Les montants financiers sont stockés sous forme de **centimes USD (entiers)** afin de limiter les erreurs d'arrondi liées aux nombres décimaux.
-
----
-
-## Services et API externes
-
-MarketLens utilise plusieurs services pour enrichir les informations financières affichées dans l'application.
-
-| Service | Utilisation |
-|---|---|
-| [Twelve Data](https://twelvedata.com/) | Prix des actions et données historiques |
-| [Finnhub](https://finnhub.io/) | Informations et profils des entreprises |
-| [Frankfurter](https://www.frankfurter.app/) | Taux de change |
-| [GNews](https://gnews.io/) | Actualités financières |
-
-### Configuration des clés API
-
-Les clés API sont transmises au lancement avec `--dart-define`.
-
-Les variables utilisées sont :
-
-- `TWELVE_DATA_KEY`
-- `FINNHUB_KEY`
-- `GNEWS_KEY`
-
-Frankfurter ne nécessite pas de clé API.
-
-**Sécurité :**
-- Ne jamais publier les clés API dans le dépôt GitHub.
-- Ne jamais intégrer directement les clés dans le code source.
-- Une clé transmise à une application mobile via `--dart-define` peut être extraite de l'APK : cette méthode ne constitue donc pas une protection contre la récupération des clés.
-- Éviter de distribuer publiquement un APK contenant des clés personnelles.
-
-Les quotas et les limitations dépendent des offres des fournisseurs.
-
----
-
-## Prérequis
-
-Pour installer et exécuter le projet sous Windows :
-
-- Windows 10 ou Windows 11.
-- Flutter SDK.
-- Dart SDK (fourni avec Flutter).
-- Android Studio.
-- Android SDK.
-- Un émulateur Android ou un téléphone Android avec le débogage USB activé.
-- Git.
-- Visual Studio Code (recommandé).
-
-Vérifier l'environnement :
-
-```cmd
+Prérequis (Windows)
+Flutter SDK (installé dans un dossier sans espace, par exemple C:\src\flutter)
+Android Studio avec le SDK Android et un émulateur (ou un téléphone avec le débogage USB)
+Git
 flutter doctor -v
-```
-
----
-
-## Installation du projet
-
-Cloner le dépôt GitHub :
-
-```cmd
-git clone https://github.com/sofien91/MarketLens.git
-```
-
-Accéder au dossier :
-
-```cmd
-cd MarketLens
-```
-
-Installer les dépendances :
-
-```cmd
+Installation
+git clone https://github.com/ghofranebenhaj/marketlens-data-platform.git
+cd marketlens-data-platform
 flutter pub get
-```
 
-**Important sous Windows :** privilégier un chemin de projet sans espaces, par exemple :
+Placez le projet dans un chemin sans espace (par exemple C:\dev\MarketLens) : un espace dans le chemin casse la compilation des bibliothèques natives sous Windows.
 
-```text
-C:\dev\MarketLens
-```
+Lancer l'application
 
----
+Démarrez un émulateur, puis :
 
-## Exécution de l'application
-
-### 1. Vérifier les appareils disponibles
-
-```cmd
 flutter devices
-```
-
-Démarrer un émulateur Android depuis Android Studio ou connecter un téléphone.
-
-### 2. Lancer l'application
-
-```cmd
-flutter run
-```
-
-Pour utiliser un émulateur précis :
-
-```cmd
 flutter run -d emulator-5554
-```
 
-### 3. Lancer avec les clés API
+Sans clé API, l'application démarre en mode démonstration. Avec les vraies données :
 
-Dans Windows CMD :
-
-```cmd
 flutter run -d emulator-5554 ^
-  --dart-define=TWELVE_DATA_KEY=YOUR_TWELVE_DATA_KEY ^
-  --dart-define=FINNHUB_KEY=YOUR_FINNHUB_KEY ^
-  --dart-define=GNEWS_KEY=YOUR_GNEWS_KEY
-```
+  --dart-define=TWELVEDATA_KEY=<votre_cle> ^
+  --dart-define=FINNHUB_KEY=<votre_cle> ^
+  --dart-define=GNEWS_KEY=<votre_cle>
 
-Remplacer les valeurs `YOUR_..._KEY` par les clés personnelles correspondantes.
+(Le caractère ^ continue la commande sur la ligne suivante dans cmd. Dans PowerShell, utilisez `, ou écrivez tout sur une seule ligne.)
 
-Pour PowerShell, utiliser une commande sur une seule ligne ou remplacer le caractère de continuation CMD `^` par le caractère de continuation PowerShell `` ` ``.
-
----
-
-## Règles de simulation financière
-
-Les opérations sont calculées en USD.
-
-| Indicateur | Formule |
-|---|---|
-| Valeur d'une position | Quantité × Dernier prix |
-| Prix moyen d'achat | Coût total / Quantité détenue |
-| Gain ou perte non réalisé(e) | Valeur actuelle − Coût de revient |
-| Gain ou perte réalisé(e) | (Prix de vente − Prix moyen) × Quantité vendue |
-| Valeur totale du compte | Solde disponible + Valeur des positions |
-
-Autres règles :
-
-- La devise comptable reste le USD.
-- La conversion monétaire concerne uniquement l'affichage.
-- Les quantités doivent être des nombres entiers strictement positifs.
-- Un achat ou une vente est refusé lorsque le prix utilisé est trop ancien (plus de 15 minutes en séance).
-- Les opérations financières sont enregistrées dans des transactions SQLite.
-
----
-
-## Stockage et persistance des données
-
-MarketLens utilise deux solutions de stockage local complémentaires.
-
-### SQLite
-
-SQLite assure la persistance des données métier :
-
-- Utilisateurs.
-- Actifs financiers.
-- Éléments du panier.
-- Positions du portefeuille.
-- Transactions d'achat et de vente.
-
-La base de données est versionnée et prévoit la gestion des migrations.
-
-Les données sont isolées par utilisateur grâce à l'identifiant `user_id`.
-
-### Hive
-
-Hive est utilisé pour :
-
-- Les préférences utilisateur.
-- Les favoris.
-- Les caches des réponses API.
-- Les informations nécessaires au fonctionnement hors ligne.
-
----
-
-## Structure du projet
-
-```text
-MarketLens/
-│
-├── lib/
-│   ├── app/
-│   │   ├── theme/
-│   │   └── router/
-│   │
-│   ├── core/
-│   │   ├── database/
-│   │   ├── network/
-│   │   ├── models/
-│   │   ├── money/
-│   │   └── widgets/
-│   │
-│   └── features/
-│       ├── auth/
-│       ├── dashboard/
-│       ├── market/
-│       ├── watchlist/
-│       ├── cart/
-│       ├── portfolio/
-│       └── profile/
-│
-├── test/
-│
-├── docs/
-│   ├── API.md
-│   ├── CHECKLIST.md
-│   └── VALIDATION.md
-│
-├── android/
-├── pubspec.yaml
-├── pubspec.lock
-└── README.md
-```
-
----
-
-## Tests et qualité du code
-
-Les commandes suivantes permettent de vérifier le projet.
-
-### Formater le code
-
-```cmd
+Règles de simulation
+Devise comptable : USD. La conversion ne sert qu'à l'affichage.
+Valeur d'une position = quantité × dernier prix.
+Prix moyen = coût total / quantité.
+Gain non réalisé = valeur actuelle − coût.
+Gain réalisé d'une vente = (prix de vente − prix moyen) × quantité.
+Valeur totale du compte = solde + valeur des positions.
+Un achat ou une vente est refusé si le prix est trop ancien (au-delà de 15 minutes en séance). Quand le marché est fermé, l'opération reste bloquée tant que le prix n'est pas actualisé : règle à affiner pour la dernière séance.
+Seules les quantités entières strictement positives sont acceptées.
+Stockage local
+SQLite : utilisateurs, actifs, éléments du panier, positions, transactions (achats et ventes). Les données sont isolées par utilisateur (user_id) et la base est versionnée.
+Hive : préférences, favoris et caches de réponses API horodatés.
+Tests Flutter
 dart format .
-```
-
-### Vérifier les erreurs et avertissements
-
-```cmd
 flutter analyze
-```
-
-### Exécuter les tests automatisés
-
-```cmd
 flutter test
-```
 
-Les tests couvrent notamment :
+Les tests couvrent notamment le capital initial unique, l'isolation entre utilisateurs, la quantité invalide, le solde insuffisant, la double validation, les calculs et arrondis, et la vente d'une quantité supérieure à celle détenue.
 
-- L'attribution unique du capital initial.
-- L'isolation des comptes utilisateurs.
-- La validation des quantités.
-- Le contrôle du solde disponible.
-- La protection contre la double validation.
-- Les calculs financiers et les arrondis.
-- La validation des opérations de vente.
-- La prévention des ventes supérieures aux quantités détenues.
-
-### Résultats des dernières vérifications
-
-| Vérification | Résultat |
-|---|---|
-| `flutter pub get` | Réussi |
-| `flutter analyze` | Aucune anomalie |
-| `flutter test` | 23 tests réussis |
-| Build Android Release | Réussi |
-| Installation de l'APK sur émulateur | Réussie |
-
-**Dernière validation locale : 31 octobre 2026.**
-
-Le build Release de 52,9 MB a été généré le 30 octobre 2026 et installé avec succès sur un émulateur Android.
-
-Les résultats des tests automatisés ne remplacent pas une validation fonctionnelle complète de chaque écran et de chaque intégration API.
-
----
-
-## Génération de l'APK Android
-
-Pour générer une version Release :
-
-```cmd
+Générer l'APK
 flutter build apk --release ^
-  --dart-define=TWELVE_DATA_KEY=YOUR_TWELVE_DATA_KEY ^
-  --dart-define=FINNHUB_KEY=YOUR_FINNHUB_KEY ^
-  --dart-define=GNEWS_KEY=YOUR_GNEWS_KEY
-```
+  --dart-define=TWELVEDATA_KEY=<votre_cle> ^
+  --dart-define=FINNHUB_KEY=<votre_cle> ^
+  --dart-define=GNEWS_KEY=<votre_cle>
 
-Le fichier APK est généré dans :
+Le fichier se trouve dans build\app\outputs\flutter-apk\app-release.apk.
 
-```text
-build\app\outputs\flutter-apk\app-release.apk
-```
+Partie 2 : backend d'analyse (Python)
 
-Pour installer l'APK sur un appareil Android connecté :
+Un petit backend FastAPI, dans le dossier backend/, ajoute une couche Data et IA :
 
-```cmd
-adb install -r build\app\outputs\flutter-apk\app-release.apk
-```
+Ingestion : historique journalier via Twelve Data, avec délai d'attente, reprises limitées, gestion des erreurs HTTP, des quotas et des réponses vides, et cache serveur horodaté.
+Catalogue : seuls les symboles du catalogue de l'application sont acceptés.
+Indicateurs (NumPy, fonctions pures testées) : rendement, volatilité, drawdown maximum, moyennes mobiles. Chaque résultat indique sa période, sa méthode et ses dates de début et de fin. Si l'historique est trop court, le résultat est « historique insuffisant » au lieu d'une valeur inventée.
+Signal pédagogique : score à règles visibles, avec la liste des conditions remplies.
+Scénario « Et si ? » : résultat d'un achat passé comparé à la dernière clôture connue, calculé sans frais avec Decimal, jamais en flottants.
+Assistant : question en français, routage déterministe (symbole et intention), recherche de passages dans un petit corpus de documentation (TF-IDF avec NumPy), puis explication rédigée par Gemini.
+Endpoints
+Endpoint	Rôle
+GET /health	Vérification du serveur
+GET /assets/{symbol}/indicators	Rendements, volatilité, drawdown, moyennes mobiles
+GET /assets/{symbol}/signal	Signal pédagogique et conditions remplies
+GET /assets/{symbol}/scenario?quantity=&sessions=	Scénario « Et si ? »
+POST /chat	Question de 500 caractères maximum ; réponse { answer, data, sources, disclaimer, generated_by }
 
----
+generated_by vaut "llm" quand Gemini a rédigé la réponse, et "template" quand elle vient d'un gabarit construit par le code. data contient toujours les valeurs brutes calculées.
 
-## Limites connues
+Formules
+Indicateur	Méthode
+Rendement sur N séances	C_fin / C_N_séances_avant − 1
+Volatilité annualisée	écart-type (échantillon, ddof=1) des rendements journaliers simples × √252
+Drawdown maximum	min(C_t / max(C_0…C_t) − 1) sur la fenêtre
+Moyenne mobile simple (20 et 50)	somme des N dernières clôtures / N
 
-- L'authentification est locale et pédagogique : aucun serveur de comptes n'est utilisé.
-- La récupération du mot de passe est simulée et ne réalise pas de véritable réinitialisation par e-mail.
-- Les prix dépendent des fournisseurs de données et de leurs quotas.
-- Les prix peuvent être différés ou provenir du cache.
-- Les fonctionnalités de simulation ne permettent aucune transaction boursière réelle.
-- La volatilité historique n'est pas incluse dans la version actuelle.
-- L'application a été testée sur Android ; les autres plateformes ne sont pas validées.
+Signal pédagogique (valeurs par défaut ; les constantes sont nommées et documentées dans le fichier de configuration du backend) :
 
----
++1 si le rendement sur 20 séances est positif ;
++1 si le dernier cours est au-dessus de la moyenne mobile 50 ;
+−1 si la volatilité annualisée dépasse 40 % ;
+−1 si le drawdown maximum est pire que −15 %.
 
-## Perspectives d'amélioration
+Score ≥ 2 : « favorable » ; score ≤ −1 : « prudence » ; sinon « neutre ». Le signal ne dit jamais d'acheter ou de vendre.
 
-Plusieurs évolutions peuvent être envisagées :
+Règles de l'assistant
+Aucune clé (modèle de langage, Twelve Data) dans Flutter, les assets ou le dépôt : elles vivent dans backend/.env, ignoré par Git.
+L'assistant ne prédit jamais un prix ni un rendement futur, et ne donne pas d'ordre d'achat ou de vente. Il présente des indicateurs et un signal pédagogique avec leur formule, leur période et la date des données.
+Il ne donne ni prix actuel, ni solde, ni positions : il renvoie vers l'écran Marchés ou Portefeuille.
+Tous les chiffres viennent du code. Les sources affichées sont construites par le serveur.
+Si les données ou la documentation sont insuffisantes, il le dit (« historique insuffisant », « la documentation ne permet pas de répondre »).
+Sans clé de modèle, ou si le modèle échoue, la réponse est un gabarit clairement étiqueté template, avec la cause du repli.
+Chaque réponse porte le rappel « Simulation pédagogique, pas un conseil financier. », ajouté par le serveur.
+Lancer le backend (Windows)
 
-- Ajouter des indicateurs de risque financier, notamment la volatilité historique calculée à partir des rendements.
-- Enrichir les graphiques et les analyses de performance.
-- Ajouter des fonctionnalités avancées de comparaison des actifs.
-- Développer un assistant conversationnel documentaire basé sur une architecture RAG avec un backend FastAPI.
-- Améliorer la couverture des tests et la validation sur différents appareils.
+Depuis le dossier backend, dans cmd :
 
----
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+notepad .env
+pytest
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-## Avertissement
+Puis ouvrez http://localhost:8000/docs pour essayer les endpoints.
 
-MarketLens est un projet académique à vocation pédagogique.
+Testé avec Python 3.14.3 sous Windows ; les autres versions ne sont pas vérifiées. Les versions des dépendances sont figées dans backend/requirements.txt.
 
-Il permet de découvrir les mécanismes de base de la gestion d'un portefeuille d'investissement à travers des opérations fictives.
+Si le port 8000 est déjà occupé, un ancien serveur tourne encore : netstat -ano | findstr :8000, puis taskkill /PID <numéro> /F.
 
-**Cette application ne constitue pas un conseil financier et ne doit pas être utilisée pour prendre des décisions d'investissement réelles.**
+Variables d'environnement (backend/.env)
+Variable	Rôle
+TWELVEDATA_KEY	Clé Twelve Data (historique de prix)
+GEMINI_API_KEY	Clé Gemini (explications ; facultative, sinon gabarit)
+GEMINI_MODEL	Nom du modèle de génération, configurable (exemple : gemini-3.6-flash)
+REQUIRE_LLM	false : repli par gabarit ; true : erreur 503 si le modèle est indisponible
 
----
+Le fichier backend/.env.example ne contient aucun secret. Ne commitez jamais backend/.env. Les noms de modèles évoluent : vérifiez-les dans la documentation officielle de Google.
 
-**Développé par Sofiene Landolsi et Ghofrane Ben Haj.**
+Tests du backend
+cd backend
+pytest
+
+Les tests s'exécutent sans réseau (client Twelve Data et modèle simulés). Ils couvrent les indicateurs sur des séries connues, l'historique insuffisant, le signal, le scénario vérifié à la main, les refus (prix actuel, solde, prédiction, conseil d'achat), la question trop longue, le symbole inconnu, le repli par gabarit, l'absence de clé et le cache.
+
+Évaluation de l'assistant
+
+docs/CHATBOT_EVAL.md liste des questions couvertes, non couvertes et ambiguës, avec le résultat attendu pour chacune. Aucun score n'y est inventé.
+
+Limites connues
+Authentification locale de démonstration : pas de serveur de comptes ni de vrai envoi d'e-mail. Le « mot de passe oublié » est un parcours simulé.
+Les prix dépendent des données et des quotas des fournisseurs gratuits ; ils peuvent être différés. Les quotas sont à vérifier dans la documentation de chaque fournisseur.
+Données journalières uniquement ; jours fériés non gérés ; historique limité (quelques mois pour la fenêtre actuelle).
+La recherche documentaire est lexicale (TF-IDF), pas vectorielle : une question sans mot commun avec le corpus peut ne rien retrouver.
+Le contrôle des nombres vérifie qu'un chiffre cité par le modèle existe dans les données calculées, mais pas qu'il est rattaché au bon indicateur.
+Le signal repose sur quatre règles et un historique court : il ne prédit rien et n'a pas été validé statistiquement.
+Les appels réels à Gemini et à Twelve Data dépendent de tes clés, de tes quotas et de l'accès de ton compte.
+L'application est testée sur Android uniquement. Un APK release ne pourra pas joindre un backend en HTTP non chiffré.
+Pistes d'amélioration
+Brancher l'écran Assistant dans l'application Flutter (URL du backend via --dart-define=BACKEND_URL, http://10.0.2.2:8000 sur l'émulateur Android).
+Rapport de qualité des données (jours manquants, doublons, valeurs aberrantes).
+Recherche documentaire par embeddings, avec repli TF-IDF.
+Prévision de volatilité évaluée contre une référence simple, jamais de prévision de prix.
+Limite de débit sur /chat, Docker et intégration continue.
+Avertissement
+
+MarketLens est un outil pédagogique. Il ne constitue pas un conseil financier.
